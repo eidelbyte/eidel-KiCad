@@ -103,7 +103,7 @@ layers, no ironing and the classic wall generator.
 Link the plugin package into KiCad's scripting plugins folder, then
 restart the PCB editor (or Tools > External Plugins > Refresh Plugins):
 
-    ln -s ~/kicad-bambu-3mf/bambu3mf \
+    ln -s ~/eidel-KiCad/bambu-3mf/bambu3mf \
         ~/Documents/KiCad/10.0/scripting/plugins/bambu3mf
 
 The toolbar button can be switched on or off on the plugins page of the

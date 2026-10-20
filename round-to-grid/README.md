@@ -59,7 +59,7 @@ numbers, still connected.
 
 ## Install
 
-    ln -s ~/kicad-round-to-grid/roundtogrid \
+    ln -s ~/eidel-KiCad/round-to-grid/roundtogrid \
         ~/Documents/KiCad/10.0/scripting/plugins/roundtogrid
 
 then restart the PCB editor or use Tools > External Plugins > Refresh

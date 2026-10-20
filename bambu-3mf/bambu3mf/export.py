@@ -6,10 +6,12 @@ its closed outlines, nested the way Edge.Cuts nests: inside an odd
 number of outlines is solid, inside an even number is a hole.
 
 Each region is extruded over the layer's z range. Where two layers'
-solids overlap, the smaller solid (by volume) keeps the space and cuts
-into the larger one, which is what an inlay needs: the thin lines carve
-their channel into the thick tile. A layer that is cut only over part
-of its height becomes a stack of slabs, one 3MF part each.
+solids overlap, the higher filament number keeps the space, like a
+z-index: an inlay on filament 2 carves its channel into a tile on
+filament 1. The numbers are only labels until they are mapped to real
+filaments in the slicer, so ordering them costs nothing. A layer that
+is cut only over part of its height becomes a stack of slabs, one 3MF
+part each.
 """
 
 import pcbnew
@@ -161,14 +163,15 @@ def _odd_holes(shapes):
 def stack(regions):
     """Split overlapping solids so that each point belongs to one layer.
 
-    regions is [(job, SHAPE_POLY_SET)]. Solids are placed smallest first,
-    by volume, ties going to the earlier entry; each keeps what no
-    smaller solid has taken. Where what is left changes along z, the
+    regions is [(job, SHAPE_POLY_SET)]. Solids are placed highest
+    filament number first; among layers on one filament, which share a
+    material, the earlier entry goes first. Each keeps what no solid
+    placed before it has taken. Where what is left changes along z, the
     layer is cut into slabs at those heights. Returns non-empty
     [(job, region, z0, z1)] in input order, then by z.
     """
     order = sorted(range(len(regions)),
-        key=lambda k: (regions[k][1].Area() * regions[k][0].depth_nm, k))
+        key=lambda k: (-regions[k][0].filament, k))
     placed = []
     slabs = []
     for k in order:
@@ -232,7 +235,8 @@ def export(board, items, jobs, path, title):
     for job, _, _, _ in slabs:
         count[job] = count.get(job, 0) + 1
     carved = [job.name for job, _ in regions if job not in count]
-    notes += ["%s: entirely covered by smaller solids; not exported." % n
+    notes += ["%s: entirely covered by higher filaments; not exported." %
+        n
         for n in carved]
 
     parts = []

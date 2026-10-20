@@ -25,8 +25,9 @@ or printed board without repainting anything in the slicer.
    written. The choices are remembered per board.
 
 For the eagle tile: F.Silkscreen with Fill closed shapes, depth 5,
-filament 1; User.Drawings depth 2.5, Z offset 2.5, filament 2. The lines
-then sit in a 2.5 mm deep channel in the top of the tile.
+filament 1; User.Drawings depth 2.5, Z offset 2.5, filament 2. The lines,
+on the higher number, then sit in a 2.5 mm deep channel in the top of
+the tile.
 
 ## What gets extruded
 
@@ -39,10 +40,14 @@ then sit in a 2.5 mm deep channel in the top of the tile.
   outer edge of the strokes. Ends up to the stroke width plus 0.02 mm
   apart still close. Text is never filled (the hole in an "O" stays a
   hole), and shapes KiCad already fills are always solid.
-- **Overlaps**: where two layers' solids overlap, the smaller solid (by
-  volume) keeps the space and cuts into the larger one; on a tie the
-  layer listed first wins. That is what makes inlays work: the thin lines
-  carve their channel out of the thick tile.
+- **Overlaps**: where two layers' solids overlap, the higher filament
+  number keeps the space, like a z-index. That is what makes inlays
+  work: lines on filament 2 carve their channel out of a tile on
+  filament 1, and where two layers of lines cross, the higher number
+  runs through. The numbers are only labels until you map them to real
+  filaments in Bambu Studio, so ordering them costs nothing. Layers on
+  the same number are the same material; the one listed first takes the
+  overlap.
 - A layer cut only over part of its height becomes a stack of parts, for
   example "F.Silkscreen 0-2.5 mm" and "F.Silkscreen 2.5-5 mm".
 - The model reads as KiCad shows it from the front. Back layers are not

@@ -59,9 +59,9 @@ Dimensions: shape kind x fill closed x stroke width x nesting.
 ## Stacking (test_kicad.py)
 
 Dimensions: z relation (inside, touching, partial, through) x xy
-relation (inside, disjoint) x volume order (smaller, tie). Every cell
-also checks that slabs never overlap and that their volume is the
-volume of the union.
+relation (inside, crossing, disjoint) x filament order (higher, lower,
+same). Every cell also checks that slabs never overlap and that their
+volume is the volume of the union.
 
 | Cell | Case                                              | Test |
 |------|---------------------------------------------------|------|
@@ -70,10 +70,11 @@ volume of the union.
 | S3   | inlay through the full height                     | test_s3_through_inlay |
 | S4   | raised: z ranges touch, no split                  | test_s4_* |
 | S5   | disjoint in xy, no split                          | test_s5_* |
-| S6   | equal volumes: first listed wins, other dropped   | test_s6_* |
-| S7   | smaller but taller solid wins                     | test_s7_* |
+| S6   | same filament: first listed wins, other dropped   | test_s6_* |
+| S7   | higher filament wins whatever its size, both ways round | test_s7_* |
 | S8   | three nested layers; equal slabs merge            | test_s8_* |
 | S9   | partial z overlap                                 | test_s9_* |
+| S10  | crossing layers of equal depth and area: number decides, listing order does not | test_s10_* |
 
 ## Export (test_kicad.py, test_bambu.py)
 

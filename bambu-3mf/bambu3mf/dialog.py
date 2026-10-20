@@ -7,8 +7,8 @@ import wx
 HELP = ("Depth is a layer's thickness and Z offset the height of its "
     "bottom, both in mm. Fill closed shapes fills every closed outline the "
     "way Edge.Cuts does: an outline inside another one is a hole. Where "
-    "solids overlap, the smaller one keeps the space and cuts into the "
-    "larger, so a thin layer becomes an inlay in a thick one.")
+    "solids overlap, the higher filament number keeps the space, like a "
+    "z-index: give an inlay a higher number than the tile it cuts into.")
 
 COLUMNS = ("Layer", "Filament", "Fill closed shapes", "Depth (mm)",
     "Z offset (mm)")

@@ -1,7 +1,7 @@
 """Layer regions, stacking and the whole export, on in-memory boards.
 
 Run with KiCad's Python (it needs pcbnew). Cells (see MATRIX.md):
-R1-R9 regions, F1-F3 selection, S1-S9 stacking, X1-X3 export.
+R1-R9 regions, F1-F3 selection, S1-S10 stacking, X1-X3 export.
 """
 
 import io
@@ -262,8 +262,8 @@ def rect_set(x0, y0, x1, y1):
     return s
 
 
-def job(name, depth, z=0.0, layer=SILK):
-    return export.Job(layer, name, 1, False, int(round(depth * MM)),
+def job(name, filament, depth, z=0.0, layer=SILK):
+    return export.Job(layer, name, filament, False, int(round(depth * MM)),
         int(round(z * MM)))
 
 
@@ -298,54 +298,74 @@ class TestStack(unittest.TestCase):
         self.assertAlmostEqual(got / union, 1, places=9)
 
     def test_s1_top_inlay(self):
-        got = self.run_stack([(job("tile", 5), rect_set(0, 0, 10, 10)),
-            (job("lines", 2.5, 2.5), rect_set(2, 1, 4, 9))])
+        got = self.run_stack([(job("tile", 1, 5), rect_set(0, 0, 10, 10)),
+            (job("lines", 2, 2.5, 2.5), rect_set(2, 1, 4, 9))])
         self.assertEqual(got, [("tile", 0, 2.5, 100), ("tile", 2.5, 5, 84),
             ("lines", 2.5, 5, 16)])
 
     def test_s2_bottom_inlay(self):
-        got = self.run_stack([(job("tile", 5), rect_set(0, 0, 10, 10)),
-            (job("lines", 2.5), rect_set(2, 1, 4, 9))])
+        got = self.run_stack([(job("tile", 1, 5), rect_set(0, 0, 10, 10)),
+            (job("lines", 2, 2.5), rect_set(2, 1, 4, 9))])
         self.assertEqual(got, [("tile", 0, 2.5, 84), ("tile", 2.5, 5, 100),
             ("lines", 0, 2.5, 16)])
 
     def test_s3_through_inlay(self):
-        got = self.run_stack([(job("tile", 5), rect_set(0, 0, 10, 10)),
-            (job("lines", 5), rect_set(2, 1, 4, 9))])
+        got = self.run_stack([(job("tile", 1, 5), rect_set(0, 0, 10, 10)),
+            (job("lines", 2, 5), rect_set(2, 1, 4, 9))])
         self.assertEqual(got, [("tile", 0, 5, 84), ("lines", 0, 5, 16)])
 
     def test_s4_raised_lines_do_not_split(self):
-        got = self.run_stack([(job("tile", 5), rect_set(0, 0, 10, 10)),
-            (job("lines", 1, 5), rect_set(2, 1, 4, 9))])
+        got = self.run_stack([(job("tile", 1, 5), rect_set(0, 0, 10, 10)),
+            (job("lines", 2, 1, 5), rect_set(2, 1, 4, 9))])
         self.assertEqual(got, [("tile", 0, 5, 100), ("lines", 5, 6, 16)])
 
     def test_s5_disjoint_in_xy_do_not_split(self):
-        got = self.run_stack([(job("a", 5), rect_set(0, 0, 10, 10)),
-            (job("b", 2.5, 1), rect_set(20, 0, 22, 9))])
+        got = self.run_stack([(job("a", 1, 5), rect_set(0, 0, 10, 10)),
+            (job("b", 2, 2.5, 1), rect_set(20, 0, 22, 9))])
         self.assertEqual(got, [("a", 0, 5, 100), ("b", 1, 3.5, 18)])
 
-    def test_s6_tie_goes_to_the_earlier_layer(self):
-        got = self.run_stack([(job("a", 2), rect_set(0, 0, 10, 10)),
-            (job("b", 2), rect_set(0, 0, 10, 10))])
+    def test_s6_same_filament_goes_to_the_earlier_layer(self):
+        got = self.run_stack([(job("a", 2, 2), rect_set(0, 0, 10, 10)),
+            (job("b", 2, 2), rect_set(0, 0, 10, 10))])
         self.assertEqual(got, [("a", 0, 2, 100)])
 
-    def test_s7_smaller_but_taller_wins(self):
-        got = self.run_stack([(job("plate", 1), rect_set(0, 0, 10, 10)),
-            (job("post", 6), rect_set(4, 4, 6, 6))])
+    def test_s7_higher_filament_wins_whatever_its_size(self):
+        plate = rect_set(0, 0, 10, 10)
+        post = rect_set(4, 4, 6, 6)
+        got = self.run_stack([(job("plate", 2, 1), plate),
+            (job("post", 1, 6), post)])
+        self.assertEqual(got, [("plate", 0, 1, 100), ("post", 1, 6, 4)])
+        got = self.run_stack([(job("plate", 1, 1), plate),
+            (job("post", 2, 6), post)])
         self.assertEqual(got, [("plate", 0, 1, 96), ("post", 0, 6, 4)])
 
     def test_s8_three_nested_layers(self):
-        got = self.run_stack([(job("a", 6), rect_set(0, 0, 10, 10)),
-            (job("b", 4, 2), rect_set(2, 2, 8, 8)),
-            (job("c", 2, 4), rect_set(4, 4, 6, 6))])
+        got = self.run_stack([(job("a", 1, 6), rect_set(0, 0, 10, 10)),
+            (job("b", 2, 4, 2), rect_set(2, 2, 8, 8)),
+            (job("c", 3, 2, 4), rect_set(4, 4, 6, 6))])
         self.assertEqual(got, [("a", 0, 2, 100), ("a", 2, 6, 64),
             ("b", 2, 4, 36), ("b", 4, 6, 32), ("c", 4, 6, 4)])
 
     def test_s9_partial_overlap_in_z(self):
-        got = self.run_stack([(job("a", 4), rect_set(0, 0, 10, 10)),
-            (job("b", 4, 2), rect_set(5, 0, 7, 10))])
+        got = self.run_stack([(job("a", 1, 4), rect_set(0, 0, 10, 10)),
+            (job("b", 2, 4, 2), rect_set(5, 0, 7, 10))])
         self.assertEqual(got, [("a", 0, 2, 100), ("a", 2, 4, 80),
             ("b", 2, 6, 20)])
+
+    def test_s10_crossing_lines_of_equal_depth(self):
+        # Equal area and depth; only the filament number decides, in
+        # whichever order the layers are listed.
+        across = rect_set(0, 4, 10, 6)
+        down = rect_set(4, 0, 6, 10)
+        got = self.run_stack([(job("red", 3, 2), across),
+            (job("blue", 2, 2), down)])
+        self.assertEqual(got, [("red", 0, 2, 20), ("blue", 0, 2, 16)])
+        got = self.run_stack([(job("blue", 2, 2), down),
+            (job("red", 3, 2), across)])
+        self.assertEqual(got, [("blue", 0, 2, 16), ("red", 0, 2, 20)])
+        got = self.run_stack([(job("red", 2, 2), across),
+            (job("blue", 3, 2), down)])
+        self.assertEqual(got, [("red", 0, 2, 16), ("blue", 0, 2, 20)])
 
 
 def read_3mf(data):
@@ -379,8 +399,8 @@ class TestExport(unittest.TestCase):
         items += d.polyline(DWGS, [(2, 2), (2, 10), (6, 10)], 0.3,
             closed=False)
         items.append(d.arc(DWGS, 6, 6, 2, 0, 180, 0.3))
-        jobs = [export.Job(SILK, "F.Silkscreen", 3, True, 5 * MM, 0),
-            export.Job(DWGS, "User.Drawings", 2, False, 2500000, 2500000)]
+        jobs = [export.Job(SILK, "F.Silkscreen", 2, True, 5 * MM, 0),
+            export.Job(DWGS, "User.Drawings", 3, False, 2500000, 2500000)]
         return d, items, jobs
 
     def test_x1_parts_filaments_and_closed_meshes(self):
@@ -389,8 +409,8 @@ class TestExport(unittest.TestCase):
         lines = export.export(d.board, items, jobs, buf, "tile")
         parts = read_3mf(buf.getvalue())
         self.assertEqual([(n, e) for n, e, _ in parts],
-            [("F.Silkscreen 0-2.5 mm", 3), ("F.Silkscreen 2.5-5 mm", 3),
-            ("User.Drawings", 2)])
+            [("F.Silkscreen 0-2.5 mm", 2), ("F.Silkscreen 2.5-5 mm", 2),
+            ("User.Drawings", 3)])
         for name, _, m in parts:
             self.assertEqual(mesh.unpaired_edges(m.triangles), [], name)
             self.assertGreater(mesh.volume6(m), 0, name)
@@ -413,7 +433,7 @@ class TestExport(unittest.TestCase):
         d = Drawing()
         items = [d.line(DWGS, 0, 0, 1, 0, 0.2)]
         with self.assertRaises(export.ExportError):
-            export.export(d.board, items, [job("F.Silkscreen", 1)],
+            export.export(d.board, items, [job("F.Silkscreen", 1, 1)],
                 io.BytesIO(), "t")
 
 

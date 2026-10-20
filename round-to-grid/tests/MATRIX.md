@@ -43,5 +43,10 @@ left alone).
 | K12  | footprint moves by anchor, inside keeps its shape | test_k12_* |
 | K13  | locked items and dimensions left alone; groups open and lose deleted members | test_k13_* |
 | K14  | grid origin; summary wording                      | test_k14_* |
-| K15  | pads selected on their own                        | deferred: same anchor move as K12; pads are rarely selected alone |
-| K16  | undo in the running KiCad                         | deferred: KiCad records an action plugin's changes for undo; needs a click-through |
+| K15  | positions only: thickness untouched, nothing deleted for it | test_k15_* |
+| K16  | thickness only: points and zones untouched, short line kept | test_k16_* |
+| K17  | separate steps for positions and thickness        | test_k17_* |
+| K18  | items already on the grid count as unchanged; zone stays filled | test_k18_* |
+| K19  | a zero-length dot rounding did not make is kept   | test_k19_* |
+| K20  | pads selected on their own                        | deferred: same anchor move as K12; pads are rarely selected alone |
+| K21  | undo in the running KiCad                         | deferred: KiCad records an action plugin's changes for undo; needs a click-through |

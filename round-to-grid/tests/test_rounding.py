@@ -55,8 +55,8 @@ class Case(unittest.TestCase):
         s.SetArcGeometry(*pts)
         return s
 
-    def run_round(self, items, step=STEP):
-        return rounding.round_items(self.board, items, step)
+    def run_round(self, items, position=STEP, thickness=STEP):
+        return rounding.round_items(self.board, items, position, thickness)
 
     def on_board(self, item):
         uuid = item.m_Uuid.AsString()
@@ -74,7 +74,7 @@ class TestShapes(Case):
         r = self.run_round([s])
         self.assertEqual((xy(s.GetStart()), xy(s.GetEnd()), s.GetWidth()),
             ((0, 0), (5250000, 2500000), 250000))
-        self.assertEqual(r.rounded, 1)
+        self.assertEqual(r.changed, 1)
 
     def test_k1_zero_length_and_thin_lines_deleted(self):
         short = self.line(1.0, 1.0, 1.05, 1.0)
@@ -355,8 +355,75 @@ class TestSelection(Case):
         s = self.line(0.1, 0.1, 5.1, 0.1)
         gone = self.line(0, 0, 5, 0, 0.001)
         r = self.run_round([s, gone])
-        self.assertEqual(r.lines(0.25), ["Rounded 1 item(s) to 0.25 mm.",
+        self.assertEqual(r.lines(0.25, 0.25), [
+            "Rounded positions and sizes to 0.25 mm and thickness to 0.25 mm.",
+            "Changed 1 item(s).",
             "Deleted 1 item(s) that rounded to zero: 1 thickness."])
+
+
+class TestOptions(Case):
+
+    def zone(self, pts):
+        z = pcbnew.ZONE(self.board)
+        z.SetLayer(pcbnew.F_Cu)
+        c = pcbnew.SHAPE_LINE_CHAIN()
+        for x, y in pts:
+            c.Append(int(round(x * MM)), int(round(y * MM)))
+        c.SetClosed(True)
+        z.Outline().AddOutline(c)
+        self.board.Add(z)
+        return z
+
+    def test_k15_positions_only(self):
+        s = self.line(0.1, 0.1, 5.1, 0.1, 0.33)
+        thin = self.line(0, 1, 5, 1, 0.001)
+        r = self.run_round([s, thin], thickness=None)
+        self.assertEqual((xy(s.GetStart()), xy(s.GetEnd()), s.GetWidth()),
+            ((0, 0), (5000000, 0), 330000))
+        self.assertTrue(self.on_board(thin))
+        self.assertEqual((r.changed, r.unchanged, dict(r.deleted)),
+            (1, 1, {}))
+        self.assertEqual(r.lines(0.25, None)[0],
+            "Rounded positions and sizes to 0.25 mm.")
+
+    def test_k16_thickness_only(self):
+        s = self.line(0.1, 0.1, 5.1, 0.1, 0.33)
+        short = self.line(1, 2, 1.05, 2, 0.25)
+        z = self.zone(((0.1, 0), (5.1, 0.1), (5.1, 5.1)))
+        r = self.run_round([s, short, z], position=None)
+        self.assertEqual((xy(s.GetStart()), xy(s.GetEnd()), s.GetWidth()),
+            ((100000, 100000), (5100000, 100000), 250000))
+        self.assertTrue(self.on_board(short))
+        self.assertEqual(xy(z.Outline().Outline(0).CPoint(0)), (100000, 0))
+        self.assertEqual((r.changed, r.unchanged, r.unfilled), (1, 2, 0))
+
+    def test_k17_separate_steps(self):
+        s = self.line(0.1, 0.1, 5.1, 0.1, 0.33)
+        t = pcbnew.PCB_TEXT(self.board)
+        t.SetText("A")
+        t.SetPosition(v(1.1, 1.1))
+        t.SetTextSize(v(1.1, 1.1))
+        t.SetTextThickness(int(0.17 * MM))
+        self.board.Add(t)
+        self.run_round([s, t], STEP, 50000)
+        self.assertEqual((xy(s.GetEnd()), s.GetWidth()), ((5000000, 0),
+            350000))
+        self.assertEqual((xy(t.GetPosition()), t.GetTextSize().x,
+            t.GetTextThickness()), ((1000000, 1000000), 1000000, 150000))
+
+    def test_k18_on_grid_items_are_unchanged(self):
+        s = self.line(0, 0, 5, 0, 0.25)
+        z = self.zone(((0, 0), (5, 0), (5, 5)))
+        r = self.run_round([s, z])
+        self.assertEqual((r.changed, r.unchanged, r.unfilled), (0, 2, 0))
+        self.assertEqual(r.lines(0.25, 0.25)[1],
+            "Changed 0 item(s); 2 already on the grid.")
+
+    def test_k19_zero_rounding_did_not_make_stays(self):
+        dot = self.line(1, 1, 1, 1, 0.5)
+        r = self.run_round([dot])
+        self.assertTrue(self.on_board(dot))
+        self.assertEqual(dict(r.deleted), {})
 
 
 if __name__ == "__main__":

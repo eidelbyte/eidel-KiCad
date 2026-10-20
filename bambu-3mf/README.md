@@ -84,8 +84,12 @@ layers, no ironing and the classic wall generator.
   (0.34 mm on a 0.4 mm nozzle) print as one bead widened to that, and
   strokes under 25% of the nozzle do not print. Use a 0.2 mm nozzle, wider strokes, or scale
   the object up in the slicer.
-- To print face down (the inlay on the bed side), put the inlay at
-  Z offset 0, or flip the object 180 degrees about X in the slicer.
+- To print face down (the coloured face on the plate: flat, with the
+  plate's finish and crisp colour edges), export with the inlay at the
+  top as usual and flip the object 180 degrees about X in the slicer.
+  Do not move the inlay to Z offset 0 instead: seen from the face, the
+  drawing would come out mirrored. Face down, the top is the back, so
+  set the object's ironing type to "no ironing".
 
 ## Install
 

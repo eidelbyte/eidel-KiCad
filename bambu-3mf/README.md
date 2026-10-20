@@ -88,8 +88,10 @@ layers, no ironing and the classic wall generator.
   plate's finish and crisp colour edges), export with the inlay at the
   top as usual and flip the object 180 degrees about X in the slicer.
   Do not move the inlay to Z offset 0 instead: seen from the face, the
-  drawing would come out mirrored. Face down, the top is the back, so
-  set the object's ironing type to "no ironing".
+  drawing would come out mirrored. Face down, the top is the back:
+  the ironing preset smooths the back, which only costs time; set the
+  object's ironing type to "no ironing" if the back does not matter.
+  A smooth plate gives a glossy face, a textured plate a matte one.
 
 ## Install
 

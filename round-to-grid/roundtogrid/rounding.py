@@ -9,6 +9,10 @@ alone:
 - thickness: line, track and border widths and text stroke thickness go
   to the nearest multiple of the step.
 
+Each layer has its own pair of steps, and an item rounds on its layer's
+(see layer()). Items on two layers that meet stay joined only where both
+layers round positions on the same step.
+
 An item is deleted when rounding takes something it cannot exist without
 to zero: a length, a radius, a side, an area, a stroke thickness, a text
 size, a via's diameter or drill. Values that may be zero just become
@@ -46,13 +50,11 @@ class Report(object):
         self.skipped = collections.Counter()
         self.unfilled = 0
 
-    def lines(self, position_mm, thickness_mm):
-        steps = []
-        if position_mm:
-            steps.append("positions and sizes to %g mm" % position_mm)
-        if thickness_mm:
-            steps.append("thickness to %g mm" % thickness_mm)
-        out = ["Rounded %s." % " and ".join(steps)]
+    def lines(self, rows):
+        """rows: (name, position step, thickness step) for each row of the
+        dialog, steps in mm or None."""
+        out = ["%s: %s." % (name, _steps(position, thickness))
+            for name, position, thickness in rows]
         done = "Changed %d item(s)" % self.changed
         if self.unchanged:
             done += "; %d already on the grid" % self.unchanged
@@ -68,22 +70,53 @@ class Report(object):
         return out
 
 
+def _steps(position_mm, thickness_mm):
+    steps = []
+    if position_mm:
+        steps.append("positions and sizes to %g mm" % position_mm)
+    if thickness_mm:
+        steps.append("thickness to %g mm" % thickness_mm)
+    return " and ".join(steps) or "left alone"
+
+
 def _counts(counter):
     return ", ".join("%d %s" % (n, what) for what, n in
         sorted(counter.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
-def round_items(board, items, position_step, thickness_step):
-    """Round items (BOARD_ITEMs, groups opened) to the steps, in
-    nanometres; a step of None leaves that kind of value alone."""
+def layer(it):
+    """The layer whose steps round it: the first one it is on, in KiCad's
+    order. That is its own layer, a via's top layer, a footprint's or an
+    SMD pad's side, the front for a through-hole pad. It comes from the
+    layer set because a pad's GetLayer() says the front even on a flipped
+    footprint."""
+    seq = it.GetLayerSet().UIOrder()
+    return seq[0] if len(seq) else it.GetLayer()
+
+
+def layers(items):
+    """The layers of items (see layer()), each once, in KiCad's order."""
+    ls = pcbnew.LSET()
+    for it in items:
+        ls.AddLayer(layer(it))
+    return list(ls.UIOrder())
+
+
+def round_items(board, items, steps):
+    """Round items (BOARD_ITEMs, groups opened) in place. steps maps each
+    of their layers to its (position, thickness) steps in nanometres; a
+    step of None leaves that kind of value alone."""
     ds = board.GetDesignSettings()
     o = ds.GetGridOrigin()
     report = Report()
     for it in flatten(items):
-        g = _Grid(position_step, thickness_step, (o.x, o.y), ds.m_MaxError)
+        position, thickness = steps[layer(it)]
+        g = _Grid(position, thickness, (o.x, o.y), ds.m_MaxError)
         try:
             if it.IsLocked():
                 raise Skip("locked")
+            if not (position or thickness):
+                raise Skip("on a layer left alone")
             handler = _handler(it)
             if handler is None:
                 raise Skip(it.GetClass())

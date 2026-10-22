@@ -6,7 +6,7 @@ package, its tests and its own README.
 | Folder           | Plugin                          | What it does |
 |------------------|---------------------------------|--------------|
 | `bambu-3mf/`     | Export Selection to Bambu 3MF   | extrudes the selection layer by layer into a multi-filament 3MF for Bambu Studio |
-| `round-to-grid/` | Round Selection to Grid         | rounds the selection's positions and sizes, and its thickness, to grid steps |
+| `round-to-grid/` | Round Selection to Grid         | rounds the selection's positions and sizes, and its thickness, to grid steps, for all layers or per layer |
 
 ## Install
 

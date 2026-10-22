@@ -1,5 +1,5 @@
 """Rounding real KiCad items on in-memory boards. Run with KiCad's
-Python. Cells K1-K14 in MATRIX.md."""
+Python. Cells K1-K19 and L1-L6 in MATRIX.md."""
 
 import math
 import os
@@ -56,7 +56,10 @@ class Case(unittest.TestCase):
         return s
 
     def run_round(self, items, position=STEP, thickness=STEP):
-        return rounding.round_items(self.board, items, position, thickness)
+        """Round items on the same steps on every layer."""
+        layers = rounding.layers(rounding.flatten(items))
+        return rounding.round_items(self.board, items,
+            {n: (position, thickness) for n in layers})
 
     def on_board(self, item):
         uuid = item.m_Uuid.AsString()
@@ -351,15 +354,6 @@ class TestSelection(Case):
         self.assertEqual((xy(s.GetStart()), xy(s.GetEnd())),
             ((100000, 300000), (5350000, 50000)))
 
-    def test_k14_report(self):
-        s = self.line(0.1, 0.1, 5.1, 0.1)
-        gone = self.line(0, 0, 5, 0, 0.001)
-        r = self.run_round([s, gone])
-        self.assertEqual(r.lines(0.25, 0.25), [
-            "Rounded positions and sizes to 0.25 mm and thickness to 0.25 mm.",
-            "Changed 1 item(s).",
-            "Deleted 1 item(s) that rounded to zero: 1 thickness."])
-
 
 class TestOptions(Case):
 
@@ -383,8 +377,8 @@ class TestOptions(Case):
         self.assertTrue(self.on_board(thin))
         self.assertEqual((r.changed, r.unchanged, dict(r.deleted)),
             (1, 1, {}))
-        self.assertEqual(r.lines(0.25, None)[0],
-            "Rounded positions and sizes to 0.25 mm.")
+        self.assertEqual(r.lines([("All layers", 0.25, None)])[0],
+            "All layers: positions and sizes to 0.25 mm.")
 
     def test_k16_thickness_only(self):
         s = self.line(0.1, 0.1, 5.1, 0.1, 0.33)
@@ -416,7 +410,7 @@ class TestOptions(Case):
         z = self.zone(((0, 0), (5, 0), (5, 5)))
         r = self.run_round([s, z])
         self.assertEqual((r.changed, r.unchanged, r.unfilled), (0, 2, 0))
-        self.assertEqual(r.lines(0.25, 0.25)[1],
+        self.assertEqual(r.lines([("All layers", 0.25, 0.25)])[1],
             "Changed 0 item(s); 2 already on the grid.")
 
     def test_k19_zero_rounding_did_not_make_stays(self):
@@ -424,6 +418,134 @@ class TestOptions(Case):
         r = self.run_round([dot])
         self.assertTrue(self.on_board(dot))
         self.assertEqual(dict(r.deleted), {})
+
+
+class TestLayers(Case):
+
+    def on(self, layer, s):
+        s.SetLayer(layer)
+        return s
+
+    def track(self, layer, a, b, w=0.2):
+        t = pcbnew.PCB_TRACK(self.board)
+        t.SetLayer(layer)
+        t.SetStart(v(*a))
+        t.SetEnd(v(*b))
+        t.SetWidth(int(round(w * MM)))
+        self.board.Add(t)
+        return t
+
+    def zone(self, *layers):
+        z = pcbnew.ZONE(self.board)
+        ls = pcbnew.LSET()
+        for n in layers:
+            ls.AddLayer(n)
+        z.SetLayerSet(ls)
+        self.board.Add(z)
+        return z
+
+    def test_l1_item_layers(self):
+        edge = self.on(pcbnew.Edge_Cuts, self.line(0, 0, 1, 0))
+        track = self.track(pcbnew.B_Cu, (0, 0), (1, 0))
+        via = pcbnew.PCB_VIA(self.board)
+        self.board.Add(via)
+        fp = pcbnew.FOOTPRINT(self.board)
+        self.board.Add(fp)
+        smd = pcbnew.PAD(fp)
+        smd.SetAttribute(pcbnew.PAD_ATTRIB_SMD)
+        smd.SetLayerSet(smd.SMDMask())
+        fp.Add(smd)
+        through = pcbnew.PAD(fp)
+        fp.Add(through)
+        fp.SetLayerAndFlip(pcbnew.B_Cu)
+        got = [rounding.layer(i) for i in (edge, track, via, fp, smd,
+            through, self.zone(pcbnew.F_Cu),
+            self.zone(pcbnew.F_Cu, pcbnew.B_Cu),
+            self.zone(pcbnew.B_Cu, pcbnew.In1_Cu))]
+        self.assertEqual(got, [pcbnew.Edge_Cuts, pcbnew.B_Cu, pcbnew.F_Cu,
+            pcbnew.B_Cu, pcbnew.B_Cu, pcbnew.F_Cu, pcbnew.F_Cu, pcbnew.F_Cu,
+            pcbnew.In1_Cu])
+
+    def test_l2_layers_once_in_kicad_order(self):
+        items = [self.on(n, self.line(0, 0, 1, 0)) for n in (pcbnew.Edge_Cuts,
+            pcbnew.B_Cu, pcbnew.F_SilkS, pcbnew.F_Cu, pcbnew.In1_Cu,
+            pcbnew.F_Cu)]
+        self.assertEqual(rounding.layers(items), [pcbnew.F_Cu, pcbnew.In1_Cu,
+            pcbnew.B_Cu, pcbnew.F_SilkS, pcbnew.Edge_Cuts])
+
+    def test_l3_each_layer_on_its_own_steps(self):
+        silk = self.line(0.1, 0.12, 5.13, 2.4, 0.33)
+        edge = self.on(pcbnew.Edge_Cuts, self.line(0.1, 0.12, 5.13, 2.4, 0.33))
+        rounding.round_items(self.board, [silk, edge],
+            {SILK: (STEP, 50000), pcbnew.Edge_Cuts: (MM, None)})
+        self.assertEqual((xy(silk.GetStart()), xy(silk.GetEnd()),
+            silk.GetWidth()), ((0, 0), (5250000, 2500000), 350000))
+        self.assertEqual((xy(edge.GetStart()), xy(edge.GetEnd()),
+            edge.GetWidth()), ((0, 0), (5000000, 2000000), 330000))
+
+    def test_l4_layer_left_alone_and_thickness_only(self):
+        silk = self.line(0.1, 0.1, 5.1, 0.1, 0.33)
+        locked = self.line(0.1, 1.1, 5.1, 1.1, 0.33)
+        locked.SetLocked(True)
+        edge = self.on(pcbnew.Edge_Cuts, self.line(0.1, 0.1, 5.1, 0.1, 0.33))
+        r = rounding.round_items(self.board, [silk, locked, edge],
+            {SILK: (None, None), pcbnew.Edge_Cuts: (None, STEP)})
+        self.assertEqual((xy(silk.GetStart()), silk.GetWidth()),
+            ((100000, 100000), 330000))
+        self.assertEqual((xy(edge.GetStart()), edge.GetWidth()),
+            ((100000, 100000), 250000))
+        self.assertEqual((r.changed, dict(r.skipped)),
+            (1, {"on a layer left alone": 1, "locked": 1}))
+
+    def joint(self):
+        """A track on each copper side meeting at a via, off the grid."""
+        top = self.track(pcbnew.F_Cu, (0, 0), (2.12, 0.12))
+        via = pcbnew.PCB_VIA(self.board)
+        via.SetPosition(v(2.12, 0.12))
+        via.SetWidth(int(0.6 * MM))
+        via.SetDrill(int(0.3 * MM))
+        self.board.Add(via)
+        bottom = self.track(pcbnew.B_Cu, (2.12, 0.12), (5, 0))
+        return top, via, bottom
+
+    def test_l5_joined_on_equal_steps(self):
+        top, via, bottom = self.joint()
+        rounding.round_items(self.board, [top, via, bottom],
+            {pcbnew.F_Cu: (STEP, None), pcbnew.B_Cu: (STEP, None)})
+        self.assertEqual({xy(top.GetEnd()), xy(via.GetPosition()),
+            xy(bottom.GetStart())}, {(2000000, 0)})
+
+    def test_l5_parted_on_unequal_steps(self):
+        top, via, bottom = self.joint()
+        rounding.round_items(self.board, [top, via, bottom],
+            {pcbnew.F_Cu: (STEP, None), pcbnew.B_Cu: (100000, None)})
+        # The via rounds with its top layer; the bottom track leaves it.
+        self.assertEqual((xy(top.GetEnd()), xy(via.GetPosition()),
+            xy(bottom.GetStart())), ((2000000, 0), (2000000, 0),
+            (2100000, 100000)))
+
+    def test_l6_summary_all_layers(self):
+        s = self.line(0.1, 0.1, 5.1, 0.1)
+        gone = self.line(0, 0, 5, 0, 0.001)
+        r = self.run_round([s, gone])
+        self.assertEqual(r.lines([("All layers", 0.25, 0.25)]), [
+            "All layers: positions and sizes to 0.25 mm and thickness to "
+            "0.25 mm.",
+            "Changed 1 item(s).",
+            "Deleted 1 item(s) that rounded to zero: 1 thickness."])
+
+    def test_l6_summary_per_layer(self):
+        silk = self.line(0.1, 0.1, 5.1, 0.1)
+        edge = self.on(pcbnew.Edge_Cuts, self.line(0.1, 0.1, 5.1, 0.1))
+        r = rounding.round_items(self.board, [silk, edge],
+            {SILK: (STEP, 100000), pcbnew.Edge_Cuts: (None, None)})
+        self.assertEqual(r.lines([("F.Silkscreen", 0.25, 0.1),
+            ("Edge.Cuts", None, None)]), [
+            "F.Silkscreen: positions and sizes to 0.25 mm and thickness to "
+            "0.1 mm.",
+            "Edge.Cuts: left alone.",
+            "Changed 1 item(s).",
+            "Left 1 item(s) unchanged: 1 on a layer left alone."])
 
 
 if __name__ == "__main__":

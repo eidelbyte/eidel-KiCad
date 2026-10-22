@@ -2,8 +2,8 @@
 
 A KiCad 10 action plugin that rounds the selected items to grid steps:
 positions and sizes on one step, thickness on another, either one or
-both. Drawings made by hand, imported or converted come out on clean
-numbers, still connected.
+both, the same for all layers or set layer by layer. Drawings made by
+hand, imported or converted come out on clean numbers, still connected.
 
 ## Use
 
@@ -17,8 +17,13 @@ numbers, still connected.
    - **Thickness**: line, track and border widths, text stroke
      thickness.
 
-   A summary says what changed, what was already on the grid, and what
-   was deleted or left alone.
+   With **All layers** ticked, one row of steps applies to everything.
+   Untick it for a row per layer in the selection, each with its own
+   steps; a row with nothing ticked leaves its layer alone. Each
+   layer's steps are remembered.
+
+   A summary says what was rounded to which steps, what changed, what
+   was already on the grid, and what was deleted or left alone.
 
 ## What it does
 
@@ -33,6 +38,12 @@ numbers, still connected.
   and track widths, text stroke thickness, text box border width.
 - An option left unticked leaves its values exactly as they are, and
   nothing is deleted on its account.
+- **Layers**: each item rounds on the steps of the first layer it is on,
+  in KiCad's layer order: its own layer, a via's top layer, a
+  footprint's or SMD pad's side, the front for a through-hole pad, the
+  first layer of a zone on several. Items on two layers that meet, such
+  as a B.Cu track at a through via, stay joined only where both layers
+  round positions on the same step.
 - **Arcs** get their ends on the grid and their radius on a multiple of
   the position step; the centre then follows, off the grid in general. If the
   rounded radius cannot span the ends, it grows to the smallest multiple
@@ -64,15 +75,17 @@ numbers, still connected.
 
 then restart the PCB editor or use Tools > External Plugins > Refresh
 Plugins. The choices are remembered in
-`~/Library/Preferences/kicad/10.0/roundtogrid.json`.
+`~/Library/Preferences/kicad/10.0/roundtogrid.json`, each layer's under
+its standard name (`User.1`, even if the board calls it something
+else).
 
 ## Tests
 
     tests/run.sh
 
-runs the grid math (no KiCad needed) and the rounding of every item kind
-on in-memory boards, with KiCad's Python. `tests/MATRIX.md` maps the
-cases.
+runs the grid math (no KiCad needed), the rounding of every item kind
+on in-memory boards, the remembered choices, and the dialog (built but
+not shown), with KiCad's Python. `tests/MATRIX.md` maps the cases.
 
 ## Layout
 

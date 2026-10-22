@@ -42,7 +42,7 @@ left alone).
 | K11  | zone outline rounded and unfilled                 | test_k11_* |
 | K12  | footprint moves by anchor, inside keeps its shape | test_k12_* |
 | K13  | locked items and dimensions left alone; groups open and lose deleted members | test_k13_* |
-| K14  | grid origin; summary wording                      | test_k14_* |
+| K14  | grid origin                                       | test_k14_* |
 | K15  | positions only: thickness untouched, nothing deleted for it | test_k15_* |
 | K16  | thickness only: points and zones untouched, short line kept | test_k16_* |
 | K17  | separate steps for positions and thickness        | test_k17_* |
@@ -50,3 +50,39 @@ left alone).
 | K19  | a zero-length dot rounding did not make is kept   | test_k19_* |
 | K20  | pads selected on their own                        | deferred: same anchor move as K12; pads are rarely selected alone |
 | K21  | undo in the running KiCad                         | deferred: KiCad records an action plugin's changes for undo; needs a click-through |
+
+## Layers (test_rounding.py)
+
+Dimensions: where an item's layer comes from x the steps of its layer
+(both, one, none) x items on two layers that meet.
+
+| Cell | Case                                              | Test |
+|------|---------------------------------------------------|------|
+| L1   | an item's layer, the first it is on: its own; a via its top layer; a footprint or SMD pad its side, flipped included; a through-hole pad the front; a zone on several layers the first | test_l1_* |
+| L2   | the selection's layers, each once, in KiCad's layer order | test_l2_* |
+| L3   | each layer on its own position and thickness steps | test_l3_* |
+| L4   | a layer with nothing to round is left alone and reported; one with only thickness keeps its points | test_l4_* |
+| L5   | items on two layers that meet stay joined on equal position steps and part on unequal ones | test_l5_* |
+| L6   | summary: one row for all layers, a row per layer, a layer left alone | test_l6_* |
+
+## Remembered choices (test_plugin.py)
+
+| Cell | Case                                              | Test |
+|------|---------------------------------------------------|------|
+| S1   | no file, or a broken one: all layers, 0.25 mm for each kind | test_s1_* |
+| S2   | a file from before layers: its two options are the all-layers row | test_s2_* |
+| S3   | layer rows from what was remembered under the standard layer name, a renamed layer included; else from the all-layers row | test_s3_* |
+| S4   | a broken layer entry reads as the all-layers row  | test_s4_* |
+| S5   | saving keeps layers not on this board and round trips | test_s5_* |
+| S6   | the steps and summary rows handed on: all layers, or per layer | test_s6_* |
+| S7   | the whole action in the running KiCad             | deferred: needs the PCB editor; run it by hand after install |
+
+## Dialog (test_dialog.py)
+
+| Cell | Case                                              | Test |
+|------|---------------------------------------------------|------|
+| D1   | All layers ticked: only its row shows; values read back | test_d1_* |
+| D2   | All layers unticked: a row per layer, in order, with its own values | test_d2_* |
+| D3   | Round needs a tick in a row that shows            | test_d3_* |
+| D4   | a kind's checkbox enables its step                | test_d4_* |
+| D5   | look and layout on screen                         | deferred: needs a display; check by hand after install |
